@@ -6,8 +6,7 @@ variable "profile" {
 }
 variable "user_key" {
   description = "user key for the SSH"
-  default     = "user_key"
-  type = string
+  default     = "user_key"  
 }
 
 
