@@ -60,11 +60,13 @@ jobs:
       - run:
           name: Terraform Validate & Format
           command: |
+            export TF_VAR_user_key=$(echo ${USER_PVT_KEY})
             terraform init
-            # terraform validate            
+            terraform validate
       - run:                  
           name: Terraform Plan & Apply
           command: |
+            export TF_VAR_user_key=$(echo ${USER_PVT_KEY})
             terraform plan 
             terraform apply -auto-approve
 

@@ -153,11 +153,13 @@ resource "aws_instance" "inst1" {
     type        = "ssh"
     host        = self.public_ip
     user        = "ubuntu"
-    private_key = file("./keys/aws_key")
+    private_key = var.user_key
     timeout     = "4m"
   }
 }
 
+
+//file("./keys/aws_key")
 
 
 
