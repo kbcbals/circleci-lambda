@@ -1,10 +1,20 @@
 terraform {
   required_version = ">= 0.12"
+
+  backend "remote" {
+    hostname     = "app.terraform.io"
+    organization = "tf-infra"
+
+    workspaces {
+      name = "deploy"
+    }
+  }
 }
 
 provider "aws" {
-  region = var.aws_region
+  region = "eu-west-2"
 }
+
 
 provider "archive" {}
 
@@ -49,56 +59,105 @@ resource "aws_lambda_function" "lambda" {
   }
 }
 
- 
+
 resource "aws_cloudwatch_event_rule" "every_five_minutes" {
-    name = "every-five-minutes"
-    description = "Fires every five minutes"
-    schedule_expression = "rate(5 minutes)"
+  name                = "every-five-minutes"
+  description         = "Fires every five minutes"
+  schedule_expression = "rate(5 minutes)"
 }
 
 resource "aws_cloudwatch_event_target" "lambda_every_five_minutes" {
-    rule = "${aws_cloudwatch_event_rule.every_five_minutes.name}"
-    target_id = "lambda"
-    arn = "${aws_lambda_function.lambda.arn}"
+  rule      = aws_cloudwatch_event_rule.every_five_minutes.name
+  target_id = "lambda"
+  arn       = aws_lambda_function.lambda.arn
 }
 
 resource "aws_lambda_permission" "allow_cloudwatch_to_call_lambda" {
-    statement_id = "AllowExecutionFromCloudWatch"
-    action = "lambda:InvokeFunction"
-    function_name = "${aws_lambda_function.lambda.function_name}"
-    principal = "events.amazonaws.com"
-    source_arn = "${aws_cloudwatch_event_rule.every_five_minutes.arn}"
+  statement_id  = "AllowExecutionFromCloudWatch"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lambda.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.every_five_minutes.arn
+}
+
+
+
+
+module "networking" {
+  source = "./networking"
+  cidr   = "10.0.0.0/16"
+
+  az-subnet-mapping = [
+    {
+      name = "subnet1"
+      az   = "eu-west-2a"
+      cidr = "10.0.0.0/24"
+    },
+    {
+      name = "subnet2"
+      az   = "eu-west-2c"
+      cidr = "10.0.1.0/24"
+    },
+  ]
+}
+
+# Create a security group that will allow us to both
+# SSH into the instance as well as access prometheus
+# publicly (note.: you'd not do this in prod - otherwise
+# you'd have prometheus publicly exposed).
+resource "aws_security_group" "allow-ssh-and-egress" {
+  name = "main"
+
+  description = "Allows SSH traffic into instances as well as all eggress."
+  vpc_id      = module.networking.vpc-id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "allow_ssh-all"
+  }
 }
 
 
 
 /*
- crap - need to be removed
+  provision an ec32 instance and will need to  trigger the circleci
 */
+resource "aws_instance" "inst1" {
+  instance_type = "t2.micro"
+  ami           = data.aws_ami.ubuntu.id
+  key_name      = "aws_key"
+  subnet_id     = module.networking.az-subnet-id-mapping["subnet1"]
+  user_data     = file("./deploy/templates/user-data.sh")
 
-
-/* data "aws_lambda_invocation" "example" {
-  # count         = var.boolean_youcreate ? "1" : "0"
-  function_name = aws_lambda_function.lambda.function_name
-
-  input = <<JSON
-{
-  "key1": "value1",
-  "key2": "value2"
+  vpc_security_group_ids = [
+    "${aws_security_group.allow-ssh-and-egress.id}",
+  ]
+  provisioner "file" {
+    source      = "./deploy/templates/ec2-caller.sh"
+    destination = "/home/ubuntu/ec2-caller.sh"
+  }
+  connection {
+    type        = "ssh"
+    host        = self.public_ip
+    user        = "ubuntu"
+    private_key = file("./keys/aws_key")
+    timeout     = "4m"
+  }
 }
-JSON
-} 
 
-output "result_entry" {
-  value = jsondecode(data.aws_lambda_invocation.example.result)
-}
-  */
- 
-/* resource "aws_lambda_function" "check_foo" {
-    filename = "hello_lambda.zip"
-  function_name = aws_lambda_function.lambda.function_name
-    role = "arn:aws:iam::424242:role/something"
-    handler = "index.handler"
-} */
+
 
 
