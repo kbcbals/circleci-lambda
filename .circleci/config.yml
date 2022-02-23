@@ -40,7 +40,7 @@ aliases:
         unzip awscliv2.zip
         sudo ./aws/install
         sudo dpkg -i ./deploy/binary/sops_3.7.1_amd64.deb        
-        sops --kms $SOPS_KMS_ARN -d ./keys/aws_key_ecc > ./keys/aws_key
+        sops --kms $SOPS_KMS_ARN -d ./keys/aws_key_ecc > ./keys/aws_key_enc
 
 jobs:
   terraform-init-validate-plan-apply-job:
