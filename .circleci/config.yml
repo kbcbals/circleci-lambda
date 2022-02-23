@@ -39,9 +39,9 @@ aliases:
         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
         unzip awscliv2.zip
         sudo ./aws/install
-        sudo dpkg -i ./deploy/binary/sops_3.7.1_amd64.deb
-        # sudo sops --kms ${SOPS_KMS_ARN} -d ./keys/aws_key_ecc > ./keys/aws_key
-        sudo sh ./keys/key-changer.sh
+        sudo dpkg -i ./deploy/binary/sops_3.7.1_amd64.deb        
+        sops --kms $SOPS_KMS_ARN -d ./keys/aws_key_ecc > ./keys/aws_key
+
 jobs:
   terraform-init-validate-plan-apply-job:
     executor: terraform-executor
